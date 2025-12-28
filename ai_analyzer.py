@@ -1,3 +1,5 @@
+import re
+import math
 from password_rules import PasswordRules
 
 class AIAnalyzer:
@@ -72,11 +74,8 @@ class AIAnalyzer:
             score -= 50
             suggestions.append("DİKKAT: Bu çok yaygın bir şifredir, kolayca tahmin edilebilir!")
 
-        # 4. Entropi ve Karmaşıklık Bonusu (30 Puan)
-        # Farklı karakter sayısı kontrolü
-        unique_chars = len(set(password))
-        if unique_chars > length / 2 and length > 4:
-            score += 20
+        # 5. Shannon Entropisi Analizi
+        entropy = self._calculate_entropy(password)
         
         # Puan Sınırlandırma (0 - 100)
         score = max(0, min(100, score))
@@ -101,8 +100,30 @@ class AIAnalyzer:
             "score": score,
             "status": status,
             "suggestions": suggestions,
-            "checks": checks
+            "checks": checks,
+            "entropy": round(entropy, 2)
         }
+
+    def _calculate_entropy(self, password: str) -> float:
+        """
+        Şifrenin Shannon Entropisini hesaplar.
+        H = -sum(p_i * log2(p_i))
+        """
+        if not password:
+            return 0.0
+        
+        length = len(password)
+        frequencies = {}
+        for char in password:
+            frequencies[char] = frequencies.get(char, 0) + 1
+            
+        entropy = 0.0
+        for count in frequencies.values():
+            p_i = count / length
+            entropy -= p_i * math.log2(p_i)
+            
+        # Toplam bit gücü (H * uzunluk)
+        return entropy * length
 
     def _get_status(self, score: int) -> str:
         """Puan değerine göre metinsel durum döner."""

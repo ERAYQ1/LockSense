@@ -150,6 +150,11 @@ class LockSenseUI(QMainWindow):
         """)
         score_layout.addWidget(self.progress_bar)
         
+        self.entropy_label = QLabel("Entropy: 0.00 bits")
+        self.entropy_label.setAlignment(Qt.AlignCenter)
+        self.entropy_label.setStyleSheet("color: #475569; font-size: 11px;")
+        score_layout.addWidget(self.entropy_label)
+        
         main_layout.addWidget(score_container)
         
         # Checklist
@@ -268,3 +273,6 @@ class LockSenseUI(QMainWindow):
         self.req_num.set_state(checks['digit'])
         self.req_spec.set_state(checks['special'])
         self.req_safe.set_state(checks['common'])
+
+        # Update Entropy
+        self.entropy_label.setText(f"Shannon Entropy: {result.get('entropy', 0):.2f} bits")
