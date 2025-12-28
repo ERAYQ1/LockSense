@@ -1,6 +1,7 @@
 import re
 import math
 from password_rules import PasswordRules
+from translations import TRANSLATIONS
 
 class AIAnalyzer:
     """
@@ -8,24 +9,24 @@ class AIAnalyzer:
     Ağırlıklı puanlama sistemi ve bulanık mantık eşikleri kullanır.
     """
     
-    def __init__(self):
+    def __init__(self, lang="en"):
         self.rules = PasswordRules()
+        self.lang = lang
+        self.texts = TRANSLATIONS.get(lang, TRANSLATIONS["en"])
 
-    def analyze(self, password: str) -> dict:
+    def analyze(self, password: str, lang=None) -> dict:
         """
         Şifreyi analiz eder ve detaylı bir rapor döner.
-        
-        Args:
-            password (str): Analiz edilecek şifre.
-            
-        Returns:
-            dict: {score: int, status: str, suggestions: list}
         """
+        if lang:
+            self.lang = lang
+            self.texts = TRANSLATIONS.get(lang, TRANSLATIONS["en"])
+
         if not password:
             return {
                 "score": 0, 
-                "status": "YOK", 
-                "suggestions": ["Lütfen bir şifre giriniz."],
+                "status": self.texts["ready"], 
+                "suggestions": [self.texts["empty_msg"]],
                 "checks": {
                     "length": False, "upper": False, "lower": False, 
                     "digit": False, "special": False, "common": False
@@ -41,38 +42,38 @@ class AIAnalyzer:
             score += 30
         elif length >= self.rules.MIN_LENGTH:
             score += 15
-            suggestions.append("Şifrenizi biraz daha uzatmak güvenliği artıracaktır.")
+            suggestions.append(self.texts["sugg_len_long"])
         else:
-            suggestions.append(f"Şifreniz çok kısa! En az {self.rules.MIN_LENGTH} karakter kullanın.")
+            suggestions.append(self.texts["sugg_len_short"])
 
         # 2. Karakter Çeşitliliği Analizi (40 Puan)
         diversity_score = 0
         if self.rules.HAS_UPPER.search(password):
             diversity_score += 10
         else:
-            suggestions.append("Büyük harf ekleyiniz.")
+            suggestions.append(self.texts["sugg_up"])
             
         if self.rules.HAS_LOWER.search(password):
             diversity_score += 10
         else:
-            suggestions.append("Küçük harf ekleyiniz.")
+            suggestions.append(self.texts["sugg_lo"])
             
         if self.rules.HAS_DIGIT.search(password):
             diversity_score += 10
         else:
-            suggestions.append("Rakam ekleyiniz.")
+            suggestions.append(self.texts["sugg_num"])
             
         if self.rules.HAS_SPECIAL.search(password):
             diversity_score += 10
         else:
-            suggestions.append("Özel karakter ekleyiniz.")
+            suggestions.append(self.texts["sugg_spec"])
             
         score += diversity_score
 
         # 3. Yaygın Şifre Kontrolü (-50 Puan Ceza)
         if password.lower() in self.rules.COMMON_PASSWORDS:
             score -= 50
-            suggestions.append("DİKKAT: Bu çok yaygın bir şifredir, kolayca tahmin edilebilir!")
+            suggestions.append(self.texts["sugg_common"])
 
         # 5. Shannon Entropisi Analizi
         entropy = self._calculate_entropy(password)
@@ -84,7 +85,7 @@ class AIAnalyzer:
         status = self._get_status(score)
         
         if score == 100:
-            suggestions = ["Mükemmel şifre! Güvenle kullanabilirsiniz."]
+            suggestions = [self.texts["excellent"]]
 
         # Kontrol Listesi Durumu (UI için)
         checks = {
@@ -96,12 +97,25 @@ class AIAnalyzer:
             "common": password.lower() not in self.rules.COMMON_PASSWORDS if password else False
         }
 
+        # 6. Radar Grafik Metrikleri (0.0 - 1.0)
+        metrics = {
+            "length": min(1.0, length / 16),
+            "variety": (bool(self.rules.HAS_UPPER.search(password)) + 
+                        bool(self.rules.HAS_LOWER.search(password)) + 
+                        bool(self.rules.HAS_DIGIT.search(password)) + 
+                        bool(self.rules.HAS_SPECIAL.search(password))) / 4,
+            "entropy": min(1.0, entropy / 128) if length > 0 else 0, # 128 bit ideal kabul edildi
+            "uniqueness": len(set(password)) / length if length > 0 else 0,
+            "safety": 0.0 if password.lower() in self.rules.COMMON_PASSWORDS else 1.0
+        }
+
         return {
             "score": score,
             "status": status,
             "suggestions": suggestions,
             "checks": checks,
-            "entropy": round(entropy, 2)
+            "entropy": round(entropy, 2),
+            "metrics": metrics
         }
 
     def _calculate_entropy(self, password: str) -> float:
@@ -128,8 +142,8 @@ class AIAnalyzer:
     def _get_status(self, score: int) -> str:
         """Puan değerine göre metinsel durum döner."""
         if score < 40:
-            return "ZAYIF"
+            return self.texts["weak"]
         elif score < 75:
-            return "ORTA"
+            return self.texts["medium"]
         else:
-            return "GÜÇLÜ"
+            return self.texts["strong"]
